@@ -1,198 +1,183 @@
-// App.js — Fairway LinkedIn Copilot (Manual-Assist, STAR token CSS)
-// - Uses your design tokens/classes from styles.css
-// - CSV upload, queue, templates, copy & open, daily caps, activity export
+// App.js — Fairway LinkedIn Copilot V2 (The "Loading Dock")
+// Focus-mode UI, Template Toggles, and "Fairway" Aesthetics.
 
 import React, { useEffect, useMemo, useState } from "react";
-import "./styles.css";
+import { 
+  Users, 
+  Search, 
+  Settings, 
+  ChevronRight, 
+  Copy, 
+  ExternalLink, 
+  CheckCircle, 
+  UploadCloud,
+  FileText,
+  RefreshCw,
+  MessageSquare
+} from "lucide-react";
 
-const LS_KEY = "fairway-li-copilot-v2";
+// --- STYLES (Embedded for Drop-in Simplicity) ---
+const Styles = () => (
+  <style>{`
+    :root {
+      --navy: #0f172a;
+      --slate: #64748b;
+      --light: #f8fafc;
+      --white: #ffffff;
+      --blue: #3b82f6;
+      --green: #10b981;
+      --border: #e2e8f0;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: 'Inter', system-ui, sans-serif; background: #f1f5f9; color: var(--navy); }
+    
+    /* Layout */
+    .app-shell { display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 320px; background: var(--white); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; }
+    .main-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; background: #f8fafc; }
+    
+    /* Typography */
+    h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -0.02em; }
+    .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--slate); font-weight: 600; margin-bottom: 6px; display: block; }
+    
+    /* Sidebar Components */
+    .sb-header { padding: 20px; border-bottom: 1px solid var(--border); }
+    .sb-search { padding: 12px 20px; border-bottom: 1px solid var(--border); }
+    .search-input { width: 100%; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--light); font-size: 13px; }
+    .queue-list { flex: 1; overflow-y: auto; padding: 10px; }
+    .queue-item { 
+      padding: 12px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; 
+      transition: all 0.1s; margin-bottom: 4px;
+    }
+    .queue-item:hover { background: var(--light); }
+    .queue-item.active { background: #eff6ff; border-color: var(--blue); }
+    .q-name { font-weight: 600; font-size: 14px; color: var(--navy); }
+    .q-role { font-size: 12px; color: var(--slate); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    
+    /* Main Stage Components */
+    .dock-card { 
+      background: var(--white); width: 100%; max-width: 600px; 
+      border-radius: 20px; box-shadow: 0 20px 40px -10px rgba(0,0,0,0.08); 
+      border: 1px solid var(--border); overflow: hidden;
+      animation: slideUp 0.3s ease-out;
+    }
+    .dock-header { padding: 32px; border-bottom: 1px solid var(--border); background: linear-gradient(to bottom, #fff, #fcfcfc); }
+    .dock-body { padding: 32px; }
+    
+    /* Tabs */
+    .tabs { display: flex; gap: 4px; background: var(--light); padding: 4px; border-radius: 8px; margin-bottom: 20px; }
+    .tab { flex: 1; padding: 8px; text-align: center; font-size: 13px; font-weight: 500; color: var(--slate); cursor: pointer; border-radius: 6px; transition: all 0.2s; }
+    .tab.active { background: var(--white); color: var(--blue); box-shadow: 0 1px 2px rgba(0,0,0,0.05); font-weight: 600; }
+    
+    /* Message Preview */
+    .preview-box { 
+      background: #f1f5f9; padding: 20px; border-radius: 12px; 
+      font-size: 14px; line-height: 1.6; color: var(--navy); 
+      border: 1px solid var(--border); min-height: 120px; margin-bottom: 20px;
+      white-space: pre-wrap;
+    }
+    .variable { color: var(--blue); background: rgba(59, 130, 246, 0.1); padding: 0 4px; border-radius: 4px; font-weight: 500; }
+    
+    /* Actions */
+    .actions { display: flex; gap: 12px; }
+    .btn { 
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      height: 48px; border-radius: 10px; font-weight: 600; cursor: pointer; 
+      transition: transform 0.1s; border: none; font-size: 14px;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary { background: var(--navy); color: white; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.2); }
+    .btn-secondary { background: white; border: 1px solid var(--border); color: var(--navy); }
+    .btn-secondary:hover { background: var(--light); }
+    
+    /* Empty State */
+    .empty-state { text-align: center; padding: 40px; }
+    .upload-btn { display: inline-flex; align-items: center; gap: 8px; background: var(--blue); color: white; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; margin-top: 20px; }
+    
+    /* Animations */
+    @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    /* Status Badges */
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .status-new { background: var(--blue); }
+    .status-done { background: var(--green); }
+  `}</style>
+);
 
-// Simple {{token}} interpolation for: name,title,company,persona,segment
+const LS_KEY = "fairway-copilot-v3";
+
+// --- HELPERS ---
+
 function renderTemplate(tpl, row) {
-  return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => row?.[k] ?? "");
+  if (!tpl) return "";
+  return tpl.replace(/\{\{(\w+)\}\}/g, (_, k) => row?.[k] ?? `[MISSING: ${k}]`);
 }
 
 function parseCSV(text) {
   const lines = text.split(/\r?\n/).filter((l) => l.trim().length);
   if (!lines.length) return [];
-  const headers = lines[0].split(",").map((h) => h.trim());
+  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase().replace(/[\s"]/g, ""));
+  
   return lines.slice(1).map((line) => {
+    // Regex to handle commas inside quotes
     const cols = line.match(/("([^"]|"")*"|[^,]+)/g) || [];
-    const cleaned = cols.map((c) =>
-      c.replace(/^"/, "").replace(/"$/, "").replace(/""/g, '"').trim()
-    );
+    const cleaned = cols.map((c) => c.replace(/^"/, "").replace(/"$/, "").replace(/""/g, '"').trim());
     const row = {};
     headers.forEach((h, i) => (row[h] = cleaned[i] ?? ""));
-    row.status = row.status || "new"; // new | requested | connected | messaged
-    row.lastActionAt = row.lastActionAt || "";
+    row.status = "new"; 
     return row;
   });
 }
 
-async function copyToClipboard(text) {
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch (e) {
-    console.warn("Clipboard error", e);
-  }
-}
-
-function downloadCSV(filename, rows) {
-  if (!rows.length) return;
-  const headers = Object.keys(rows[0]);
-  const body = rows
-    .map((r) =>
-      headers
-        .map((h) => `"${String(r[h] ?? "").replace(/"/g, '""')}"`)
-        .join(",")
-    )
-    .join("\n");
-  const csv = [headers.join(","), body].join("\n");
-  const url = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-}
-
-function statusBadge(status) {
-  const map = {
-    new: { label: "new", color: "#93C5FD" },
-    requested: { label: "requested", color: "#7DD3FC" },
-    connected: { label: "connected", color: "#A78BFA" },
-    messaged: { label: "messaged", color: "#FBBF24" },
-  };
-  const s = map[status] || map.new;
-  return (
-    <span
-      className="badge"
-      style={{
-        borderColor: "transparent",
-        color: "#0f172a",
-        background: s.color,
-        fontWeight: 700,
-      }}
-    >
-      {s.label}
-    </span>
-  );
-}
+// --- MAIN COMPONENT ---
 
 export default function App() {
+  // Data State
   const [prospects, setProspects] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
-
-  const [connectNoteTpl, setConnectNoteTpl] = useState(
-    " Hi {{name}}, great to see what you’re building at {{company}}. I partner with {{title}} leaders exploring new ways to improve {{product / need / fit}}. Worth connecting?"
-  );
-  const [followupTpl, setFollowupTpl] = useState(
-    "Appreciate the connection, {{name}}! Would you be against me sending over some new content we've created around key insights related to [enter challenge], or should I send over a short Zoom link?"
-  );
-
+  const [search, setSearch] = useState("");
+  
+  // Settings & Templates
+  const [templates, setTemplates] = useState({
+    connect: "Hi {{name}}, great to see what you’re building at {{company}}. I partner with {{title}} leaders exploring new ways to improve {{segment}}. Worth connecting?",
+    followup1: "Appreciate the connection, {{name}}! Would you be open to me sending over a short PDF on how we solved [Problem] for similar {{title}}s?",
+    followup2: "{{name}} - bumping this. Any thoughts on the above?"
+  });
+  
+  const [activeTab, setActiveTab] = useState("connect");
   const [dailyLimit, setDailyLimit] = useState(50);
   const [sentToday, setSentToday] = useState(0);
-  const [todayStr, setTodayStr] = useState(() => new Date().toDateString());
-  const [throttleMs, setThrottleMs] = useState(15000);
 
-  const [log, setLog] = useState([]);
-  const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("all");
-
-  // Load persisted
+  // Persistence
   useEffect(() => {
-    const raw = localStorage.getItem(LS_KEY);
-    if (!raw) return;
-    try {
-      const s = JSON.parse(raw);
-      setProspects(s.prospects ?? []);
-      setSelectedIndex(s.selectedIndex ?? 0);
-      setConnectNoteTpl(s.connectNoteTpl ?? connectNoteTpl);
-      setFollowupTpl(s.followupTpl ?? followupTpl);
-      setDailyLimit(s.dailyLimit ?? dailyLimit);
-      setSentToday(s.sentToday ?? sentToday);
-      setTodayStr(s.todayStr ?? todayStr);
-      setThrottleMs(s.throttleMs ?? throttleMs);
-      setLog(s.log ?? []);
-    } catch {}
-    // eslint-disable-next-line
+    const saved = localStorage.getItem(LS_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        setProspects(parsed.prospects || []);
+        setTemplates(parsed.templates || templates);
+        setSentToday(parsed.sentToday || 0);
+      } catch (e) { console.error("Load failed", e); }
+    }
   }, []);
 
-  // Persist
   useEffect(() => {
-    localStorage.setItem(
-      LS_KEY,
-      JSON.stringify({
-        prospects,
-        selectedIndex,
-        connectNoteTpl,
-        followupTpl,
-        dailyLimit,
-        sentToday,
-        todayStr,
-        throttleMs,
-        log,
-      })
+    localStorage.setItem(LS_KEY, JSON.stringify({ prospects, templates, sentToday }));
+  }, [prospects, templates, sentToday]);
+
+  // Derived State
+  const filteredList = useMemo(() => {
+    const q = search.toLowerCase();
+    return prospects.filter(p => 
+      !q || (p.name?.toLowerCase().includes(q) || p.company?.toLowerCase().includes(q))
     );
-  }, [
-    prospects,
-    selectedIndex,
-    connectNoteTpl,
-    followupTpl,
-    dailyLimit,
-    sentToday,
-    todayStr,
-    throttleMs,
-    log,
-  ]);
+  }, [prospects, search]);
 
-  // Reset daily counter on day change
-  useEffect(() => {
-    const now = new Date().toDateString();
-    if (now !== todayStr) {
-      setTodayStr(now);
-      setSentToday(0);
-    }
-  }, [todayStr]);
+  const current = filteredList[selectedIndex];
 
-  const current = prospects[selectedIndex];
-
-  const filteredProspects = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return prospects.filter((p) => {
-      const matchesQ =
-        !q ||
-        [p.name, p.title, p.company, p.persona, p.segment]
-          .filter(Boolean)
-          .some((x) => String(x).toLowerCase().includes(q));
-      const matchesStatus = filterStatus === "all" || p.status === filterStatus;
-      return matchesQ && matchesStatus;
-    });
-  }, [prospects, search, filterStatus]);
-
-  useEffect(() => {
-    if (!filteredProspects.length) return;
-    const idxInFiltered = filteredProspects.indexOf(current);
-    if (idxInFiltered === -1) {
-      setSelectedIndex(
-        Math.min(selectedIndex, Math.max(0, filteredProspects.length - 1))
-      );
-    }
-    // eslint-disable-next-line
-  }, [filteredProspects.length]);
-
-  const connectPreview = useMemo(
-    () => (current ? renderTemplate(connectNoteTpl, current) : ""),
-    [current, connectNoteTpl]
-  );
-  const followupPreview = useMemo(
-    () => (current ? renderTemplate(followupTpl, current) : ""),
-    [current, followupTpl]
-  );
-
-  /* ------------ Handlers ------------ */
-  function onUploadCSV(e) {
+  // Logic
+  const handleUpload = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
     const reader = new FileReader();
@@ -202,389 +187,205 @@ export default function App() {
       setSelectedIndex(0);
     };
     reader.readAsText(f);
-  }
+  };
 
-  function openLinkedIn(url) {
-    window.open(url || "https://www.linkedin.com/", "_blank", "noopener");
-  }
-
-  function markAction(action, idx = selectedIndex) {
-    const next = [...prospects];
-    const p = { ...next[idx] };
-    p.lastActionAt = new Date().toISOString();
-    if (action === "connect") p.status = "requested";
-    if (action === "message") p.status = "messaged";
-    next[idx] = p;
-    setProspects(next);
-    setLog((l) => [
-      { idx, action, name: p.name, company: p.company, at: p.lastActionAt },
-      ...l,
-    ]);
-  }
-
-  function nextProspect() {
-    const list = filteredProspects;
-    if (!list.length) return;
-    const pos = list.indexOf(current);
-    const target = list[Math.min(pos + 1, list.length - 1)];
-    const globalIdx = prospects.indexOf(target);
-    setSelectedIndex(globalIdx === -1 ? selectedIndex : globalIdx);
-  }
-
-  async function runConnect() {
+  const copyAndOpen = async () => {
     if (!current) return;
-    if (sentToday >= dailyLimit) {
-      alert("Daily limit reached.");
-      return;
+    
+    const text = renderTemplate(templates[activeTab], current);
+    await navigator.clipboard.writeText(text);
+    
+    // Open LinkedIn
+    let url = current.linkedin_url || current.linkedinurl || current.url;
+    if (url && !url.startsWith('http')) url = 'https://' + url;
+    window.open(url || "https://linkedin.com", "_blank");
+
+    // Mark done & advance
+    const newProspects = [...prospects];
+    const realIndex = prospects.indexOf(current);
+    if (realIndex > -1) {
+      newProspects[realIndex].status = "messaged";
+      setProspects(newProspects);
     }
-    await copyToClipboard(connectPreview);
-    openLinkedIn(current.linkedin_url);
-    markAction("connect");
-    setSentToday((n) => n + 1);
-    setTimeout(() => {}, throttleMs);
+    
+    setSentToday(prev => prev + 1);
+    
+    // Auto advance after short delay
+    setTimeout(() => {
+      if (selectedIndex < filteredList.length - 1) {
+        setSelectedIndex(prev => prev + 1);
+      }
+    }, 500);
+  };
+
+  const skipProspect = () => {
+    if (selectedIndex < filteredList.length - 1) setSelectedIndex(prev => prev + 1);
+  };
+
+  // --- RENDER ---
+
+  if (prospects.length === 0) {
+    return (
+      <div className="app-shell" style={{ alignItems: 'center', justifyContent: 'center' }}>
+        <Styles />
+        <div className="empty-state">
+          <div style={{ background: '#eff6ff', width: 80, height: 80, borderRadius: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <UploadCloud size={40} color="#3b82f6" />
+          </div>
+          <h1>Ready to Launch?</h1>
+          <p style={{ color: '#64748b', marginTop: 10, maxWidth: 400 }}>
+            Upload your prospect CSV to enter the <b>Fairway Loading Dock</b>. 
+            <br/>We'll handle the templates and pacing.
+          </p>
+          <label className="upload-btn">
+            <input type="file" accept=".csv" style={{ display: 'none' }} onChange={handleUpload} />
+            Upload CSV List
+          </label>
+          <p style={{ fontSize: 12, color: '#94a3b8', marginTop: 20 }}>Required columns: name, title, company, linkedin_url</p>
+        </div>
+      </div>
+    );
   }
 
-  async function runFollowup() {
-    if (!current) return;
-    await copyToClipboard(followupPreview);
-    openLinkedIn(current.linkedin_url);
-    markAction("message");
-    setTimeout(() => {}, throttleMs);
-  }
-
-  function exportLog() {
-    if (!log.length) return;
-    downloadCSV("fairway_li_activity.csv", log);
-  }
-
-  /* ------------- UI ------------- */
   return (
-    <div className="app">
-      {/* Page head */}
-      <div className="page-head">
-        <h1>Fairway Digital Media • Social Outreach</h1>
-        <p className="tabs-intro">
-          Manual-assist outreach: you copy text and click inside LinkedIn. No
-          bots.
-        </p>
+    <div className="app-shell">
+      <Styles />
+      
+      {/* --- SIDEBAR (QUEUE) --- */}
+      <div className="sidebar">
+        <div className="sb-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <div style={{ width: 32, height: 32, background: '#0f172a', borderRadius: 6 }}></div>
+            <span style={{ fontWeight: 700, fontSize: 16 }}>Fairway Copilot</span>
+          </div>
+          
+          {/* Progress Widget */}
+          <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, border: '1px solid #e2e8f0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>
+              <span>Daily Pace</span>
+              <span style={{ color: sentToday >= dailyLimit ? 'red' : 'green' }}>{sentToday} / {dailyLimit}</span>
+            </div>
+            <div style={{ height: 6, background: '#e2e8f0', borderRadius: 3, overflow: 'hidden' }}>
+              <div style={{ width: `${(sentToday / dailyLimit) * 100}%`, background: '#0f172a', height: '100%' }}></div>
+            </div>
+          </div>
+        </div>
+
+        <div className="sb-search">
+          <div style={{ position: 'relative' }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: 10, color: '#94a3b8' }} />
+            <input 
+              className="search-input" 
+              placeholder="Search queue..." 
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ paddingLeft: 32 }}
+            />
+          </div>
+        </div>
+
+        <div className="queue-list">
+          {filteredList.map((p, i) => (
+            <div 
+              key={i} 
+              className={`queue-item ${i === selectedIndex ? 'active' : ''}`}
+              onClick={() => setSelectedIndex(i)}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="q-name">{p.name || "Unknown"}</div>
+                {p.status === 'messaged' && <CheckCircle size={14} color="#10b981" />}
+              </div>
+              <div className="q-role">{p.title}</div>
+              <div className="q-role" style={{ color: '#94a3b8' }}>{p.company}</div>
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Top controls */}
-      <div className="pmix-grid">
-        {/* Left rail: Controls & Filters */}
-        <div className="pmix-controls">
-          <div className="pmix-group">
-            <h4>Search & Filter</h4>
-            <div className="pmix-row">
-              <label>Search</label>
-              <input
-                className="input select"
-                placeholder="name, title, company, persona, segment…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <div className="pmix-row">
-              <label>Status</label>
-              <select
-                className="select"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="all">All</option>
-                <option value="new">New</option>
-                <option value="requested">Requested</option>
-                <option value="connected">Connected</option>
-                <option value="messaged">Messaged</option>
-              </select>
-            </div>
-            <div className="pmix-row">
-              <label>Upload CSV</label>
-              <input
-                className="select"
-                type="file"
-                accept=".csv"
-                onChange={onUploadCSV}
-              />
-            </div>
-            <div className="pmix-row">
-              <label>Download Template</label>
-              <button
-                className="btn"
-                onClick={() =>
-                  downloadCSV("fairway_template.csv", [
-                    {
-                      name: "Jane Doe",
-                      title: "VP Engineering",
-                      company: "Acme Inc",
-                      linkedin_url: "https://www.linkedin.com/in/janedoe",
-                      persona: "Engineering",
-                      segment: "Enterprise",
-                      status: "new",
-                    },
-                  ])
-                }
-              >
-                CSV Template
-              </button>
-            </div>
-          </div>
-
-          <div className="pmix-group">
-            <h4>Safety & Pace</h4>
-            <div className="pmix-row">
-              <label>Daily Limit</label>
-              <input
-                className="input"
-                type="number"
-                min={1}
-                value={dailyLimit}
-                onChange={(e) => setDailyLimit(parseInt(e.target.value || 0))}
-              />
-              <span className="pmix-right">
-                <span className="num">{sentToday}</span> sent today
-              </span>
-            </div>
-            <div className="pmix-row">
-              <label>Throttle (ms)</label>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                value={throttleMs}
-                onChange={(e) => setThrottleMs(parseInt(e.target.value || 0))}
-              />
-            </div>
-            <div className="pmix-row">
-              <label>Prospects</label>
-              <span className="num">{prospects.length}</span>
-            </div>
-            <div className="pmix-row">
-              <label>Activity Log</label>
-              <button className="btn" onClick={exportLog}>
-                Export CSV
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Right: Cards */}
-        <div className="col gap">
-          {/* Queue */}
-          <div className="card">
-            <div className="card-header">
-              <h3>Queue</h3>
-              <div className="sub">
-                Showing {filteredProspects.length} of {prospects.length}
-              </div>
-            </div>
-
-            <div>
-              {filteredProspects.length ? (
-                filteredProspects.map((p, i) => {
-                  const globalIdx = prospects.indexOf(p);
-                  const active = globalIdx === selectedIndex;
-                  return (
-                    <button
-                      key={globalIdx + (p.linkedin_url || i)}
-                      className={`ap-link${active ? " active" : ""}`}
-                      onClick={() => setSelectedIndex(globalIdx)}
-                      title={p.linkedin_url}
-                    >
-                      <div
-                        className="row gap"
-                        style={{ justifyContent: "space-between" }}
-                      >
-                        <div
-                          className="col gap"
-                          style={{ alignItems: "flex-start" }}
-                        >
-                          <div className="family">{p.name || "(no name)"}</div>
-                          <small className="muted">
-                            {p.title} · {p.company}
-                          </small>
-                        </div>
-                        {statusBadge(p.status)}
-                      </div>
-                    </button>
-                  );
-                })
-              ) : (
-                <small className="muted">
-                  Upload a CSV with columns:{" "}
-                  <code>name,title,company,linkedin_url,persona,segment</code>
-                </small>
-              )}
-            </div>
-          </div>
-
-          {/* Workbench */}
-          <div className="card">
-            <div className="card-header">
-              <h3>Workbench</h3>
-              {current && (
-                <a
-                  className="sub"
-                  href={current.linkedin_url || "#"}
-                  target="_blank"
+      {/* --- MAIN STAGE (FOCUS MODE) --- */}
+      <div className="main-stage">
+        {current ? (
+          <div className="dock-card">
+            {/* Header */}
+            <div className="dock-header">
+              <div className="label">Current Prospect</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <h1 style={{ fontSize: 24, marginBottom: 4 }}>{current.name}</h1>
+                  <div style={{ fontSize: 16, color: '#475569', fontWeight: 500 }}>
+                    {current.title} <span style={{ color: '#cbd5e1' }}>|</span> {current.company}
+                  </div>
+                </div>
+                <a 
+                  href={current.linkedin_url || '#'} 
+                  target="_blank" 
                   rel="noreferrer"
+                  style={{ color: '#3b82f6', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600 }}
                 >
-                  Open profile ↗
+                  Profile <ExternalLink size={14} />
                 </a>
-              )}
-            </div>
-
-            {current ? (
-              <>
-                <div className="row gap">
-                  <div className="col gap">
-                    <div className="family">{current.name || "(no name)"}</div>
-                    <small className="muted">
-                      {current.title} · {current.company}
-                    </small>
-                    <small className="muted">
-                      {current.persona} · {current.segment}
-                    </small>
-                  </div>
-                  <div>{statusBadge(current.status)}</div>
-                </div>
-
-                <div className="pmix-group">
-                  <h4>Connection note (you click send)</h4>
-                  <div className="ap-editor" style={{ padding: 10 }}>
-                    <div className="ab-card" style={{ marginBottom: 8 }}>
-                      {connectPreview}
-                    </div>
-                    <div className="row gap">
-                      <button className="btn primary" onClick={runConnect}>
-                        Copy & Open LinkedIn
-                      </button>
-                      <button
-                        className="btn"
-                        onClick={() => {
-                          copyToClipboard(connectPreview);
-                          markAction("connect");
-                        }}
-                      >
-                        Copy Only
-                      </button>
-                      <button className="btn" onClick={nextProspect}>
-                        Next →
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="pmix-group">
-                  <h4>Follow-up (after acceptance)</h4>
-                  <div className="ap-editor" style={{ padding: 10 }}>
-                    <div className="ab-card" style={{ marginBottom: 8 }}>
-                      {followupPreview}
-                    </div>
-                    <div className="row gap">
-                      <button className="btn primary" onClick={runFollowup}>
-                        Copy & Open LinkedIn
-                      </button>
-                      <button
-                        className="btn"
-                        onClick={() => {
-                          copyToClipboard(followupPreview);
-                          markAction("message");
-                        }}
-                      >
-                        Copy Only
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </>
-            ) : (
-              <small className="muted">No prospect selected.</small>
-            )}
-          </div>
-
-          {/* Templates */}
-          <div className="card">
-            <div className="card-header">
-              <h3>Templates & Personalization</h3>
-              <div className="sub">
-                Use variables: <code>{"{{name}}"}</code>,{" "}
-                <code>{"{{title}}"}</code>, <code>{"{{company}}"}</code>,{" "}
-                <code>{"{{persona}}"}</code>, <code>{"{{segment}}"}</code>
+              </div>
+              
+              {/* Context Tags */}
+              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                {current.segment && <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>{current.segment}</span>}
+                {current.persona && <span style={{ background: '#f1f5f9', color: '#475569', padding: '4px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>{current.persona}</span>}
               </div>
             </div>
 
-            <div className="row gap">
-              <div className="col gap" style={{ flex: 1 }}>
-                <small className="muted">Connection Note</small>
-                <textarea
-                  className="ap-textarea"
-                  value={connectNoteTpl}
-                  onChange={(e) => setConnectNoteTpl(e.target.value)}
+            {/* Body */}
+            <div className="dock-body">
+              <div className="tabs">
+                <div className={`tab ${activeTab === 'connect' ? 'active' : ''}`} onClick={() => setActiveTab('connect')}>
+                  <Users size={14} style={{ marginBottom: -2, marginRight: 6 }} />
+                  Connect
+                </div>
+                <div className={`tab ${activeTab === 'followup1' ? 'active' : ''}`} onClick={() => setActiveTab('followup1')}>
+                  <MessageSquare size={14} style={{ marginBottom: -2, marginRight: 6 }} />
+                  Follow-up 1
+                </div>
+                <div className={`tab ${activeTab === 'followup2' ? 'active' : ''}`} onClick={() => setActiveTab('followup2')}>
+                  <RefreshCw size={14} style={{ marginBottom: -2, marginRight: 6 }} />
+                  Follow-up 2
+                </div>
+              </div>
+
+              {/* Live Editor with Highlighted Variables */}
+              <div className="label">Message Preview</div>
+              <div className="preview-box">
+                {renderTemplate(templates[activeTab], current).split(/(\[.*?\])/g).map((part, i) => 
+                  part.startsWith('[') && part.endsWith(']') ? 
+                  <span key={i} className="variable">{part}</span> : part
+                )}
+              </div>
+
+              {/* Template Editor Toggle (Hidden by default for cleanliness) */}
+              <details style={{ marginBottom: 24 }}>
+                <summary style={{ fontSize: 12, color: '#94a3b8', cursor: 'pointer', outline: 'none' }}>Edit Template</summary>
+                <textarea 
+                  style={{ width: '100%', marginTop: 8, padding: 10, borderRadius: 8, borderColor: '#e2e8f0', fontSize: 13, fontFamily: 'sans-serif' }}
+                  rows={3}
+                  value={templates[activeTab]}
+                  onChange={(e) => setTemplates({...templates, [activeTab]: e.target.value})}
                 />
-              </div>
-              <div className="col gap" style={{ flex: 1 }}>
-                <small className="muted">Follow-up Message</small>
-                <textarea
-                  className="ap-textarea"
-                  value={followupTpl}
-                  onChange={(e) => setFollowupTpl(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div className="ap-help">
-              <details>
-                <summary>Fairway guidance</summary>
-                <ul className="bullets">
-                  <li>
-                    This is manual-assist. You perform the final click in
-                    LinkedIn.
-                  </li>
-                  <li>
-                    Keep first notes short. Personalize with title/company
-                    context.
-                  </li>
-                  <li>Stay under sensible daily caps to avoid risk.</li>
-                </ul>
               </details>
-            </div>
-          </div>
 
-          {/* Activity (compact) */}
-          {log.length > 0 && (
-            <div className="card analysis">
-              <h3>Recent Activity</h3>
-              <div className="subhead">Most recent first</div>
-              <div className="table-wrap">
-                <table className="table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Company</th>
-                      <th>Action</th>
-                      <th className="right">Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {log.map((r, i) => (
-                      <tr key={i}>
-                        <td>{r.name}</td>
-                        <td>{r.company}</td>
-                        <td>{r.action}</td>
-                        <td className="right">
-                          <span className="num">
-                            {new Date(r.at).toLocaleString()}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="actions">
+                <button className="btn btn-secondary" onClick={skipProspect}>
+                  Skip
+                </button>
+                <button className="btn btn-primary" onClick={copyAndOpen}>
+                  <Copy size={16} />
+                  Copy & Open LinkedIn
+                </button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', color: '#94a3b8' }}>
+            <p>Select a prospect from the queue to begin.</p>
+          </div>
+        )}
       </div>
     </div>
   );
